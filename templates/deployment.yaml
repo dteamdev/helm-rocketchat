@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "helm-rocketchat.fullname" . }}
+  labels:
+    {{- include "helm-rocketchat.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "helm-rocketchat.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "helm-rocketchat.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "helm-rocketchat.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          env:
+          - name: DEPLOY_PLATFORM
+            value: helm-chart
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: MONGO_URL
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "helm-rocketchat.fullname" . }}
+                key: mongo-uri
+          - name: MONGO_OPLOG_URL
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "helm-rocketchat.fullname" . }}
+                key: mongo-oplog-uri
+          {{- if .Values.host }}
+          - name: ROOT_URL
+            value: https://{{ .Values.host }}
+          {{- end }}
+          {{- if .Values.smtp.enabled }}
+          - name: MAIL_URL
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "rocketchat.fullname" . }}
+                key: mail-url
+          {{- end }}
+          {{- with .Values.extraEnv }}
+          {{ tpl . $ | indent 8 }}
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /api/info
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /api/info
+              port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
+          volumeMounts:
+          - name: rocket-data
+            mountPath: /app/uploads
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+      - name: rocket-data
+      {{- if .Values.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ if .Values.persistence.existingClaim }}{{ .Values.persistence.existingClaim }}{{- else }}{{ template "helm-rocketchat.fullname" . }}{{- end }}
+      {{- else }}
+        emptyDir: {}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.podAntiAffinity .Values.affinity }}
+      affinity:
+        {{- if .Values.affinity }}
+        {{ toYaml .Values.affinity | indent 8 }}
+        {{- end }}
+        {{- if eq .Values.podAntiAffinity "hard" }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: {{ .Values.podAntiAffinityTopologyKey }}
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: {{ include "helm-rocketchat.name" . }}
+        {{- else if eq .Values.podAntiAffinity "soft" }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: {{ .Values.podAntiAffinityTopologyKey }}
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: {{ include "helm-rocketchat.name" . }}
+                  app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
