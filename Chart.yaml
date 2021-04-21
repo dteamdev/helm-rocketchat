@@ -1,7 +1,7 @@
 apiVersion: v2
 name: rocketchat
 description: Prepare to take off with the ultimate chat platform, experience the next level of team communications
-version: 1.0.1
+version: 1.0.2
 appVersion: 3.13.2
 keywords:
 - chat
