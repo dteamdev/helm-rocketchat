@@ -103,7 +103,8 @@ podAntiAffinityTopologyKey: kubernetes.io/hostname
 ## Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
 ##
 livenessProbe:
-  enabled: true
+  enabled: false
+  path: "/"
   initialDelaySeconds: 60
   periodSeconds: 15
   timeoutSeconds: 5
@@ -111,7 +112,8 @@ livenessProbe:
   successThreshold: 1
 
 readinessProbe:
-  enabled: true
+  enabled: false
+  path: "/"
   initialDelaySeconds: 10
   periodSeconds: 15
   timeoutSeconds: 5
@@ -139,18 +141,10 @@ mongodb:
 
   architecture: replicaset
 
+  replicaCount: 0
 
-#  replicaSet:
-#    enabled: true
-#    replicas:
-#      secondary: 0
-#      arbiter: 0
-#    pdb:
-#      minAvailable:
-#        secondary: 0
-#        arbiter: 0
-
-   # key:
+  arbiter:
+    enabled: false
 
   persistence:
     enabled: true
