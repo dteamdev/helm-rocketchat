@@ -137,6 +137,9 @@ mongodb:
     database: rocketchat
     rootPassword: ""
 
+  architecture: replicaset
+
+
 #  replicaSet:
 #    enabled: true
 #    replicas:
